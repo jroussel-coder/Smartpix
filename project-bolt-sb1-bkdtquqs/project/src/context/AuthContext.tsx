@@ -44,63 +44,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const login = async (email: string, password: string): Promise<void> => {
-    // This is a mock implementation
-    // In a real app, you would call your authentication API
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        // Simulate validation
-        if (!email || !password) {
-          reject(new Error('Email and password are required'));
-          return;
-        }
-        
-        if (password.length < 6) {
-          reject(new Error('Password must be at least 6 characters'));
-          return;
-        }
-        
-        // Create mock user
-        const newUser = {
-          email,
-          id: Math.random().toString(36).substring(2, 15),
-        };
-        
-        setUser(newUser);
-        localStorage.setItem('smartpix_user', JSON.stringify(newUser));
-        resolve();
-      }, 1000);
-    });
-  };
+const login = async (email: string, password: string): Promise<void> => {
+  const res = await fetch("http://localhost:8000/api/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
 
-  const signup = async (email: string, password: string): Promise<void> => {
-    // This is a mock implementation
-    // In a real app, you would call your authentication API
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        // Simulate validation
-        if (!email || !password) {
-          reject(new Error('Email and password are required'));
-          return;
-        }
-        
-        if (password.length < 6) {
-          reject(new Error('Password must be at least 6 characters'));
-          return;
-        }
-        
-        // Create mock user
-        const newUser = {
-          email,
-          id: Math.random().toString(36).substring(2, 15),
-        };
-        
-        setUser(newUser);
-        localStorage.setItem('smartpix_user', JSON.stringify(newUser));
-        resolve();
-      }, 1000);
-    });
-  };
+  if (!res.ok) {
+    const { detail } = await res.json();
+    throw new Error(detail || "Login failed");
+  }
+
+  const user = await res.json();
+  setUser(user);
+  localStorage.setItem("smartpix_user", JSON.stringify(user));
+};
+
+
+const signup = async (email: string, password: string): Promise<void> => {
+  const res = await fetch("http://localhost:8000/api/signup", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+
+  if (!res.ok) {
+    const { detail } = await res.json();
+    throw new Error(detail || "Signup failed");
+  }
+
+  const user = await res.json();
+  setUser(user);
+  localStorage.setItem("smartpix_user", JSON.stringify(user));
+};
 
   const logout = () => {
     setUser(null);
