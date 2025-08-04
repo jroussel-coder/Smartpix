@@ -1,7 +1,8 @@
 ﻿from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from auth import signup, login 
-from routes import ai
+from fastapi.staticfiles import StaticFiles 
+from api import editor
 
 app = FastAPI()
 
@@ -14,6 +15,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(signup.router, prefix="/api")
 app.include_router(login.router, prefix="/api")
-app.include_router(ai, prefix="/api") 
+app.include_router(editor.router, prefix="/api")
