@@ -1,6 +1,7 @@
 ﻿from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from auth import signup, login  # assuming both export `router`
+from auth import signup, login 
+from routes import ai
 
 app = FastAPI()
 
@@ -15,3 +16,4 @@ app.add_middleware(
 # Include routers
 app.include_router(signup.router, prefix="/api")
 app.include_router(login.router, prefix="/api")
+app.include_router(ai, prefix="/api") 
