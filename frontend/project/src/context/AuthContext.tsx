@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from 'react';
 
 interface User {
   email: string;
@@ -10,6 +16,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,69 +33,76 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+// Use environment variable or fallback to localhost
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is already logged in
     const storedUser = localStorage.getItem('smartpix_user');
     if (storedUser) {
       try {
-        setUser(JSON.parse(storedUser));
-      } catch (error) {
-        console.error('Error parsing stored user data:', error);
+        const parsed = JSON.parse(storedUser);
+        if (parsed?.email && parsed?.id) {
+          setUser(parsed);
+        } else {
+          throw new Error('Invalid user data');
+        }
+      } catch (err) {
+        console.error('Error loading stored user:', err);
         localStorage.removeItem('smartpix_user');
       }
     }
     setLoading(false);
   }, []);
 
-const login = async (email: string, password: string): Promise<void> => {
-  const res = await fetch("http://localhost:8000/api/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
+  const handleResponse = async (res: Response) => {
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data?.detail || 'Request failed');
+    }
+    const data = await res.json();
+    if (!data.email || !data.id) {
+      throw new Error('Invalid response from server');
+    }
+    return data;
+  };
 
-  if (!res.ok) {
-    const { detail } = await res.json();
-    throw new Error(detail || "Login failed");
-  }
+  const login = async (email: string, password: string): Promise<void> => {
+    const res = await fetch(`${API_BASE}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await handleResponse(res);
+    setUser(data);
+    localStorage.setItem('smartpix_user', JSON.stringify(data));
+  };
 
-  const user = await res.json();
-  setUser(user);
-  localStorage.setItem("smartpix_user", JSON.stringify(user));
-};
-
-
-const signup = async (email: string, password: string): Promise<void> => {
-  const res = await fetch("http://localhost:8000/api/signup", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-
-  if (!res.ok) {
-    const { detail } = await res.json();
-    throw new Error(detail || "Signup failed");
-  }
-
-  const user = await res.json();
-  setUser(user);
-  localStorage.setItem("smartpix_user", JSON.stringify(user));
-};
+  const signup = async (email: string, password: string): Promise<void> => {
+    const res = await fetch(`${API_BASE}/api/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await handleResponse(res);
+    setUser(data);
+    localStorage.setItem('smartpix_user', JSON.stringify(data));
+  };
 
   const logout = () => {
     setUser(null);
     localStorage.removeItem('smartpix_user');
   };
 
-  const value = {
+  const value: AuthContextType = {
     user,
     login,
     signup,
     logout,
+    loading,
   };
 
   return (

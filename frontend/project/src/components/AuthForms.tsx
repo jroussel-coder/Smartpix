@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { LogIn, UserPlus, Lock, Mail, AlertCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -13,37 +13,39 @@ const AuthForms: React.FC<AuthFormsProps> = ({ type }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  
+
   const navigate = useNavigate();
-  const { login, signup } = useAuth();
+  const { user, login, signup } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard'); // or '/' if you'd rather go home
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
-    
-    // Validation
-    if (!email || !password) {
+
+    // Basic validation
+    if (!email || !password || (type === 'signup' && !confirmPassword)) {
       setError('Please fill in all fields');
       return;
     }
-    
     if (type === 'signup' && password !== confirmPassword) {
       setError('Passwords do not match');
       return;
     }
-    
-    // Mock authentication
+
     setLoading(true);
-    
     try {
       if (type === 'login') {
         await login(email, password);
       } else {
         await signup(email, password);
       }
-      navigate('/dashboard');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Authentication failed');
+      setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setLoading(false);
     }
@@ -66,7 +68,7 @@ const AuthForms: React.FC<AuthFormsProps> = ({ type }) => {
             </Link>
           </p>
         </div>
-        
+
         <div className="bg-white dark:bg-gray-800 py-8 px-4 shadow-md sm:rounded-lg sm:px-10">
           {error && (
             <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-md flex items-start">
@@ -74,13 +76,10 @@ const AuthForms: React.FC<AuthFormsProps> = ({ type }) => {
               <span>{error}</span>
             </div>
           )}
-          
+
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
-              <label 
-                htmlFor="email" 
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Email address
               </label>
               <div className="mt-1 relative">
@@ -91,8 +90,8 @@ const AuthForms: React.FC<AuthFormsProps> = ({ type }) => {
                   id="email"
                   name="email"
                   type="email"
-                  autoComplete="email"
                   required
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="appearance-none block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white sm:text-sm"
@@ -102,10 +101,7 @@ const AuthForms: React.FC<AuthFormsProps> = ({ type }) => {
             </div>
 
             <div>
-              <label 
-                htmlFor="password" 
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Password
               </label>
               <div className="mt-1 relative">
@@ -116,8 +112,8 @@ const AuthForms: React.FC<AuthFormsProps> = ({ type }) => {
                   id="password"
                   name="password"
                   type="password"
-                  autoComplete={type === 'login' ? 'current-password' : 'new-password'}
                   required
+                  autoComplete={type === 'login' ? 'current-password' : 'new-password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="appearance-none block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white sm:text-sm"
@@ -128,10 +124,7 @@ const AuthForms: React.FC<AuthFormsProps> = ({ type }) => {
 
             {type === 'signup' && (
               <div>
-                <label 
-                  htmlFor="confirmPassword" 
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Confirm Password
                 </label>
                 <div className="mt-1 relative">
@@ -142,8 +135,8 @@ const AuthForms: React.FC<AuthFormsProps> = ({ type }) => {
                     id="confirmPassword"
                     name="confirmPassword"
                     type="password"
-                    autoComplete="new-password"
                     required
+                    autoComplete="new-password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     className="appearance-none block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white sm:text-sm"
@@ -156,10 +149,7 @@ const AuthForms: React.FC<AuthFormsProps> = ({ type }) => {
             {type === 'login' && (
               <div className="flex items-center justify-end">
                 <div className="text-sm">
-                  <a 
-                    href="#" 
-                    className="font-medium text-purple-600 hover:text-purple-500 dark:text-purple-400 dark:hover:text-purple-300"
-                  >
+                  <a href="#" className="font-medium text-purple-600 hover:text-purple-500 dark:text-purple-400 dark:hover:text-purple-300">
                     Forgot your password?
                   </a>
                 </div>
