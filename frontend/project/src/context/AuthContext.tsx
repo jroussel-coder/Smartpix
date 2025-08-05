@@ -9,6 +9,7 @@ import React, {
 interface User {
   email: string;
   id: string;
+  token: string;
 }
 
 interface AuthContextType {
@@ -16,69 +17,64 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string) => Promise<void>;
   logout: () => void;
-  loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const useAuth = () => {
+function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-};
+}
 
 interface AuthProviderProps {
   children: ReactNode;
 }
 
-// Use environment variable or fallback to localhost
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('smartpix_user');
-    if (storedUser) {
+    const stored = localStorage.getItem('smartpix_user');
+    if (stored) {
       try {
-        const parsed = JSON.parse(storedUser);
-        if (parsed?.email && parsed?.id) {
+        const parsed = JSON.parse(stored);
+        if (parsed?.email && parsed?.id && parsed?.token) {
           setUser(parsed);
         } else {
           throw new Error('Invalid user data');
         }
-      } catch (err) {
-        console.error('Error loading stored user:', err);
+      } catch {
         localStorage.removeItem('smartpix_user');
       }
     }
     setLoading(false);
   }, []);
 
-  const handleResponse = async (res: Response) => {
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data?.detail || 'Request failed');
-    }
-    const data = await res.json();
-    if (!data.email || !data.id) {
-      throw new Error('Invalid response from server');
-    }
-    return data;
-  };
-
   const login = async (email: string, password: string): Promise<void> => {
+    const form = new URLSearchParams();
+    form.append('username', email);
+    form.append('password', password);
+
     const res = await fetch(`${API_BASE}/api/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: form.toString(),
     });
-    const data = await handleResponse(res);
-    setUser(data);
-    localStorage.setItem('smartpix_user', JSON.stringify(data));
+
+    if (!res.ok) {
+      const { detail } = await res.json();
+      throw new Error(detail || 'Login failed');
+    }
+
+    const user = await res.json();
+    setUser(user);
+    localStorage.setItem('smartpix_user', JSON.stringify(user));
   };
 
   const signup = async (email: string, password: string): Promise<void> => {
@@ -87,9 +83,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
-    const data = await handleResponse(res);
-    setUser(data);
-    localStorage.setItem('smartpix_user', JSON.stringify(data));
+
+    if (!res.ok) {
+      const { detail } = await res.json();
+      throw new Error(detail || 'Signup failed');
+    }
+
+    const user = await res.json();
+    setUser(user);
+    localStorage.setItem('smartpix_user', JSON.stringify(user));
   };
 
   const logout = () => {
@@ -102,7 +104,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     signup,
     logout,
-    loading,
   };
 
   return (
@@ -111,3 +112,5 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     </AuthContext.Provider>
   );
 };
+
+export { AuthProvider, useAuth };

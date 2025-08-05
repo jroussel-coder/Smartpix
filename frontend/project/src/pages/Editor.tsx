@@ -5,7 +5,6 @@ import ImageUploader from '../components/ImageUploader';
 import EditOptions, { EditOption } from '../components/EditOptions';
 import ImageComparison from '../components/ImageComparison';
 import { useAuth } from '../context/AuthContext';
-import { getMockImages } from '../utils/imageUtils';
 
 const Editor: React.FC = () => {
   const [originalImage, setOriginalImage] = useState<string | null>(null);
@@ -20,26 +19,15 @@ const Editor: React.FC = () => {
   const location = useLocation();
 
   useEffect(() => {
-    // Redirect if not logged in
     if (!user) {
       navigate('/login');
       return;
     }
 
-    // Check if we're editing an existing image
     const searchParams = new URLSearchParams(location.search);
     const imageId = searchParams.get('id');
-    
     if (imageId) {
-      // Load the image data
-      const mockImages = getMockImages();
-      const image = mockImages.find(img => img.id === imageId);
-      
-      if (image) {
-        setOriginalImage(image.originalImageUrl);
-        setEditedImage(image.editedImageUrl);
-        setIsProcessed(!!image.editedImageUrl);
-      }
+      // You can fetch and preload image data here if needed
     }
   }, [user, navigate, location.search]);
 
@@ -48,6 +36,7 @@ const Editor: React.FC = () => {
     setOriginalImage(preview);
     setEditedImage(null);
     setIsProcessed(false);
+    setSelectedOption(null);
   };
 
   const handleSelectOption = (option: EditOption) => {
@@ -55,20 +44,52 @@ const Editor: React.FC = () => {
   };
 
   const handleApplyEdit = async () => {
-    if (!originalImage || !selectedOption) return;
-    
+    if (!selectedFile || !selectedOption || !user) return;
+
     setIsProcessing(true);
-    
+
     try {
-      // Simulate API call to AI service
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // For mock purposes, just use the original image with slight modifications
-      // In a real app, this would be the result from the AI service
-      setEditedImage(originalImage);
+      // 1. Upload the image
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("user_id", user.id);
+
+      const uploadRes = await fetch("http://localhost:8000/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!uploadRes.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const uploadData = await uploadRes.json();
+      const imageId = uploadData.image_id;
+
+      // 2. Apply edit
+      const editForm = new FormData();
+      editForm.append("image_id", imageId);
+      editForm.append("edit_type", selectedOption.id); 
+      editForm.append( "intensity",String(selectedOption.settings?.intensity ?? 50) );
+      editForm.append("user_id", user.id);
+
+      const editRes = await fetch("http://localhost:8000/api/edit", {
+        method: "POST",
+        body: editForm,
+      });
+
+      if (!editRes.ok) {
+        throw new Error("Edit failed");
+      }
+
+      const editData = await editRes.json();
+      const fullURL = `http://localhost:8000${editData.edited_url}`;
+
+      setEditedImage(fullURL);
       setIsProcessed(true);
-    } catch (error) {
-      console.error('Error processing image:', error);
+    } catch (err) {
+      console.error("Edit failed:", err);
+      alert("Something went wrong during image editing.");
     } finally {
       setIsProcessing(false);
     }
@@ -76,8 +97,6 @@ const Editor: React.FC = () => {
 
   const handleDownload = () => {
     if (!editedImage) return;
-    
-    // Create a temporary link and trigger download
     const link = document.createElement('a');
     link.href = editedImage;
     link.download = selectedFile?.name || 'smartpix-edited.jpg';
@@ -87,7 +106,6 @@ const Editor: React.FC = () => {
   };
 
   const handleSaveToProfile = () => {
-    // Would save to user's profile in a real app
     navigate('/dashboard');
   };
 
@@ -121,7 +139,12 @@ const Editor: React.FC = () => {
                   onDownload={handleDownload}
                   isProcessed={isProcessed}
                 />
-                
+                {selectedOption && (
+                  <p className="text-sm text-gray-500 mt-2">
+                    Edit type: <strong>{selectedOption.name}</strong><br />
+                    Description: <em>{selectedOption.description}</em>
+                  </p>
+                )}
                 {isProcessed && (
                   <div className="mt-4 flex justify-end">
                     <button
