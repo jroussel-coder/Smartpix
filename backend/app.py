@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from auth import signup, login 
 from fastapi.staticfiles import StaticFiles 
-from api import editor
+from api import editor,dashboard
 
 app = FastAPI()
 
@@ -20,3 +20,4 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(signup.router, prefix="/api")
 app.include_router(login.router, prefix="/api")
 app.include_router(editor.router, prefix="/api")
+app.include_router(dashboard.router, prefix="/api")
