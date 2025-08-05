@@ -1,4 +1,5 @@
-﻿from fastapi import FastAPI
+﻿#backend/app.py
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from auth import signup, login 
 from fastapi.staticfiles import StaticFiles 

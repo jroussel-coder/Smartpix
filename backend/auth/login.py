@@ -1,26 +1,46 @@
-#login.py
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends
-from bson import ObjectId
-from datetime import datetime
-import shutil, os
-from jose import jwt
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import APIRouter, HTTPException, Depends
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from jose import JWTError, jwt
 from dotenv import load_dotenv
+from datetime import datetime, timedelta
 import os
-import sys
-from db import images_collection, edits_collection
-from utils.image_ai import process_image
+
+from db import users_collection
+from models.user import AuthResponse
+from utils.security import verify_password
 
 load_dotenv()
 
 router = APIRouter()
 
-# JWT secret key
+# JWT config
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
 
+@router.post("/login", response_model=AuthResponse)
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    user = await users_collection.find_one({"email": form_data.username})
+    if not user or not verify_password(form_data.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    # Generate token
+    user_id = str(user["_id"])
+    payload = {
+        "sub": user_id,
+        "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    }
+    token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+    return {
+        "email": user["email"],
+        "id": user_id,
+        "token": token
+    }
+
+# Optional helper if you want protected endpoints later
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -28,71 +48,5 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         if user_id is None:
             raise HTTPException(status_code=401, detail="Invalid token payload")
         return user_id
-    except Exception as e:
+    except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
-
-STATIC_DIR = "static"
-UPLOAD_DIR = os.path.join(STATIC_DIR, "uploads")
-EDIT_DIR = os.path.join(STATIC_DIR, "processed")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-os.makedirs(EDIT_DIR, exist_ok=True)
-
-@router.post("/upload")
-async def upload_image(
-    file: UploadFile = File(...),
-    user_id: str = Form(...)
-):
-    try:
-        user_object_id = ObjectId(user_id)
-    except:
-        raise HTTPException(status_code=400, detail="Invalid user ID")
-
-    filename = file.filename
-    path = os.path.join(UPLOAD_DIR, filename)
-
-    with open(path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    image_doc = {
-        "user_id": user_object_id,
-        "original_url": f"/static/uploads/{filename}",
-        "filename": filename,
-        "uploaded_at": datetime.utcnow(),
-        "tags": []
-    }
-    result = await images_collection.insert_one(image_doc)
-    return {"image_id": str(result.inserted_id), "url": image_doc["original_url"]}
-
-@router.post("/edit")
-async def edit_image(
-    image_id: str = Form(...),
-    edit_type: str = Form(...),
-    intensity: int = Form(...),
-    user_id: str = Form(...)
-):
-    try:
-        user_object_id = ObjectId(user_id)
-        image_object_id = ObjectId(image_id)
-    except:
-        raise HTTPException(status_code=400, detail="Invalid ObjectId")
-
-    image_doc = await images_collection.find_one({"_id": image_object_id})
-    if not image_doc:
-        raise HTTPException(status_code=404, detail="Image not found")
-
-    input_path = os.path.join(UPLOAD_DIR, image_doc['filename'])
-    output_filename = f"{ObjectId()}.jpg"
-    output_path = os.path.join(EDIT_DIR, output_filename)
-
-    process_image(input_path, output_path, edit_type, intensity)
-
-    edit_doc = {
-        "user_id": user_object_id,
-        "image_id": image_object_id,
-        "edit_type": edit_type,
-        "intensity": intensity,
-        "edited_url": f"/static/processed/{output_filename}",
-        "created_at": datetime.utcnow()
-    }
-    await edits_collection.insert_one(edit_doc)
-    return {"edited_url": edit_doc["edited_url"]}

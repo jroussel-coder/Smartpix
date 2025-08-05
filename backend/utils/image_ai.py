@@ -1,11 +1,13 @@
+#backedn/utils/image_ai.py
 import openai
+from openai import OpenAI
 import requests
 from PIL import Image
 from io import BytesIO
 import os
 
-# Replace this with secure environment variable loading in production
-openai.api_key = "sk-..."  # TODO: Replace securely
+
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 def process_image(input_path: str, output_path: str, edit_type: str, intensity: int):
     prompts = {
@@ -21,15 +23,18 @@ def process_image(input_path: str, output_path: str, edit_type: str, intensity: 
 
     prompt = prompts[edit_type]
 
-    with open(input_path, "rb") as image_file:
-        response = openai.Image.create_variation(
-            image=image_file,
-            n=1,
-            size="512x512"
-        )
+    client = OpenAI()
 
-    image_url = response["data"][0]["url"]
+    response = client.images.create_variation(
+        image=open(input_path, "rb"),
+        n=1,
+        size="512x512"
+    )
+    image_url = response.data[0].url
     img_data = requests.get(image_url).content
 
     with open(output_path, "wb") as f:
         f.write(img_data)
+
+    print("Image saved to:", output_path)
+    print("Generated image URL:", image_url)
