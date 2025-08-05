@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Clock, Download, Edit2, Trash2 } from 'lucide-react';
 import { UserImage } from '../types';
+import { useAuth } from '../context/AuthContext';
 
 interface UserDashboardProps {
-  images: UserImage[];
   onSelectImage: (image: UserImage) => void;
   onDeleteImage: (imageId: string) => void;
   onDownloadImage: (imageId: string) => void;
@@ -11,13 +11,35 @@ interface UserDashboardProps {
 }
 
 const UserDashboard: React.FC<UserDashboardProps> = ({
-  images,
   onSelectImage,
   onDeleteImage,
   onDownloadImage,
   onEditImage
 }) => {
-  // Format date
+  const [images, setImages] = useState<UserImage[]>([]);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchImages = async () => {
+      try {
+        const res = await fetch(`http://localhost:8000/api/user-images/${user.id}`);
+        if (!res.ok) {
+          throw new Error('Failed to fetch images');
+        }
+        const data = await res.json();
+        setImages(data);
+      } catch (err) {
+        console.error('Error fetching user images:', err);
+      }
+    };
+
+    fetchImages();
+  }, [user]);
+
+
+  
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('en-US', {
       month: 'short',
@@ -57,7 +79,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                 onClick={() => onSelectImage(image)}
               >
                 <img 
-                  src={image.editedImageUrl || image.originalImageUrl} 
+                  src={`http://localhost:8000${image.originalImageUrl}`} 
                   alt={image.name}
                   className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                 />

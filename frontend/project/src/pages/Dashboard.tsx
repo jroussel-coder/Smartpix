@@ -4,7 +4,8 @@ import { Plus, BarChart2, Image as ImageIcon, RefreshCw } from 'lucide-react';
 import UserDashboard from '../components/UserDashboard';
 import { useAuth } from '../context/AuthContext';
 import { UserImage } from '../types';
-import { getMockImages } from '../utils/imageUtils';
+
+const API_BASE_URL = 'http://localhost:8000';
 
 const Dashboard: React.FC = () => {
   const [images, setImages] = useState<UserImage[]>([]);
@@ -13,20 +14,35 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Redirect if not logged in
-    if (!user) {
+    if (!user || !user.token || !user.id) {
       navigate('/login');
       return;
     }
 
-    // Fetch images (using mock data for now)
     const fetchImages = async () => {
       try {
         setLoading(true);
-        // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 800));
-        const mockImages = getMockImages();
-        setImages(mockImages);
+        const response = await fetch(`${API_BASE_URL}/api/user-images/${user.id}`, {
+          headers: {
+            Authorization: `Bearer ${user.token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch user images');
+        }
+
+        const data: UserImage[] = await response.json();
+
+        const fullData = data.map(image => ({
+          ...image,
+          originalImageUrl: `${API_BASE_URL}${image.originalImageUrl}`,
+          editedImageUrl: image.editedImageUrl
+            ? `${API_BASE_URL}${image.editedImageUrl}`
+            : null,
+        }));
+
+        setImages(fullData);
       } catch (error) {
         console.error('Error fetching images:', error);
       } finally {
@@ -38,20 +54,35 @@ const Dashboard: React.FC = () => {
   }, [user, navigate]);
 
   const handleSelectImage = (image: UserImage) => {
-    // Open image detail view or navigate to editor with this image
     navigate(`/editor?id=${image.id}`);
   };
 
-  const handleDeleteImage = (imageId: string) => {
-    // Mock deletion
-    setImages(images.filter(img => img.id !== imageId));
+  const handleDeleteImage = async (imageId: string) => {
+    if (!user || !user.token) return;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/images/${imageId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to delete image');
+      }
+
+      setImages(prev => prev.filter(img => img.id !== imageId));
+    } catch (err) {
+      console.error('Delete failed:', err);
+      alert('Failed to delete image');
+    }
   };
 
   const handleDownloadImage = (imageId: string) => {
     const image = images.find(img => img.id === imageId);
-    if (!image || !image.editedImageUrl) return;
-    
-    // Create a temporary link and trigger download
+    if (!image?.editedImageUrl) return;
+
     const link = document.createElement('a');
     link.href = image.editedImageUrl;
     link.download = image.name || 'smartpix-image.jpg';
@@ -69,9 +100,7 @@ const Dashboard: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-              Dashboard
-            </h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
             <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
               Welcome back, {user?.email?.split('@')[0] || 'User'}
             </p>
@@ -88,71 +117,17 @@ const Dashboard: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 mb-8">
-          <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <ImageIcon className="h-6 w-6 text-gray-400" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                      Total Images
-                    </dt>
-                    <dd>
-                      <div className="text-lg font-medium text-gray-900 dark:text-white">
-                        {images.length}
-                      </div>
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <RefreshCw className="h-6 w-6 text-gray-400" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                      Processed This Month
-                    </dt>
-                    <dd>
-                      <div className="text-lg font-medium text-gray-900 dark:text-white">
-                        {images.filter(img => img.editedImageUrl).length}
-                      </div>
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
-            <div className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <BarChart2 className="h-6 w-6 text-gray-400" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                      Storage Used
-                    </dt>
-                    <dd>
-                      <div className="text-lg font-medium text-gray-900 dark:text-white">
-                        {(images.length * 2.5).toFixed(1)} MB
-                      </div>
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-          </div>
+          <StatCard icon={<ImageIcon className="h-6 w-6 text-gray-400" />} title="Total Images" value={images.length} />
+          <StatCard
+            icon={<RefreshCw className="h-6 w-6 text-gray-400" />}
+            title="Processed This Month"
+            value={images.filter(img => img.editedImageUrl).length}
+          />
+          <StatCard
+            icon={<BarChart2 className="h-6 w-6 text-gray-400" />}
+            title="Storage Used"
+            value={`${(images.length * 2.5).toFixed(1)} MB`}
+          />
         </div>
 
         {loading ? (
@@ -160,7 +135,7 @@ const Dashboard: React.FC = () => {
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
           </div>
         ) : (
-          <UserDashboard 
+          <UserDashboard
             images={images}
             onSelectImage={handleSelectImage}
             onDeleteImage={handleDeleteImage}
@@ -172,5 +147,31 @@ const Dashboard: React.FC = () => {
     </div>
   );
 };
+
+const StatCard = ({
+  icon,
+  title,
+  value,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  value: string | number;
+}) => (
+  <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
+    <div className="p-5">
+      <div className="flex items-center">
+        <div className="flex-shrink-0">{icon}</div>
+        <div className="ml-5 w-0 flex-1">
+          <dl>
+            <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">{title}</dt>
+            <dd>
+              <div className="text-lg font-medium text-gray-900 dark:text-white">{value}</div>
+            </dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
 export default Dashboard;

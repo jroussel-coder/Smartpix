@@ -72,32 +72,39 @@ const ImageComparison: React.FC<ImageComparisonProps> = ({
     <div className={`relative w-full ${isFullscreen ? 'fixed inset-0 z-50 bg-black flex items-center justify-center p-4' : ''}`}>
       <div 
         ref={containerRef}
-        className={`relative w-full h-full overflow-hidden select-none ${isFullscreen ? '' : 'bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700'}`}
+        className={`relative w-full ${isFullscreen ? 'h-full' : 'h-[500px]'} overflow-hidden select-none ${isFullscreen ? '' : 'bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700'}`}
         onMouseMove={handleMouseMove}
         onTouchMove={handleTouchMove}
       >
-        {/* Original image - full width */}
-        <div className="absolute inset-0">
+        {/* Original image */}
+        <div className="absolute inset-0 flex items-center justify-center">
           <img 
             src={originalSrc} 
             alt="Original" 
             className="w-full h-full object-contain"
+            style={{ maxHeight: '100%', maxWidth: '100%' }}
           />
         </div>
-        
-        {/* Edited image - partial width controlled by slider */}
+
+        {/* Edited image (partial view) */}
         <div 
           className="absolute inset-0 overflow-hidden"
           style={{ width: `${sliderPosition}%` }}
         >
-          <img 
-            src={editedSrc} 
-            alt="Edited" 
-            className="w-full h-full object-contain"
-            style={{ width: `${100 / (sliderPosition / 100)}%` }}
-          />
+          <div className="w-full h-full flex items-center justify-center">
+            <img 
+              src={editedSrc} 
+              alt="Edited" 
+              className="h-full object-contain"
+              style={{ 
+                width: sliderPosition > 0 ? `${100 / (sliderPosition / 100)}%` : '100%',
+                maxHeight: '100%',
+                maxWidth: 'none'
+              }}
+            />
+          </div>
         </div>
-        
+
         {/* Slider handle */}
         <div 
           className="absolute top-0 bottom-0 w-1 bg-white cursor-col-resize shadow-md"
@@ -109,7 +116,7 @@ const ImageComparison: React.FC<ImageComparisonProps> = ({
             <div className="w-1 h-8 bg-gray-400 rounded"></div>
           </div>
         </div>
-        
+
         {/* Labels */}
         <div className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
           Original
@@ -117,8 +124,8 @@ const ImageComparison: React.FC<ImageComparisonProps> = ({
         <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
           Edited
         </div>
-        
-        {/* Buttons */}
+
+        {/* Action Buttons */}
         <div className="absolute bottom-4 right-4 flex space-x-2">
           <button
             onClick={toggleFullscreen}

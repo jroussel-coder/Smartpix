@@ -86,7 +86,8 @@ python app.py
 2. **Start the frontend** (in another terminal):
 ```bash
 cd frontend/project
-npm start
+npm run dev
+
 ```
 
 ## Technologies Used
