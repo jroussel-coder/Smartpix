@@ -1,3 +1,4 @@
+//components\UserDashboard.tsx
 import React, { useEffect, useState } from 'react';
 import { Clock, Download, Edit2, Trash2 } from 'lucide-react';
 import { UserImage } from '../types';
@@ -79,7 +80,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                 onClick={() => onSelectImage(image)}
               >
                 <img 
-                  src={`http://localhost:8000${image.originalImageUrl}`} 
+                  src={`${image.originalImageUrl}`} 
                   alt={image.name}
                   className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                 />

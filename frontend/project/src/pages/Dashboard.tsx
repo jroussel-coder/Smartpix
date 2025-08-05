@@ -36,10 +36,8 @@ const Dashboard: React.FC = () => {
 
         const fullData = data.map(image => ({
           ...image,
-          originalImageUrl: `${API_BASE_URL}${image.originalImageUrl}`,
-          editedImageUrl: image.editedImageUrl
-            ? `${API_BASE_URL}${image.editedImageUrl}`
-            : null,
+          originalImageUrl: image.originalImageUrl,
+          editedImageUrl: image.editedImageUrl || null,
         }));
 
         setImages(fullData);
