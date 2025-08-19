@@ -1,6 +1,6 @@
 import ImageComparison from '../components/ImageComparison';
 import { useAuth } from '../context/AuthContext';
-import { ImageService } from '../services/imageService';
+import { getMockImages } from '../utils/imageUtils';
 
 const Editor: React.FC = () => {
   const [originalImage, setOriginalImage] = useState<string | null>(null);
@@ -9,14 +9,13 @@ const Editor: React.FC = () => {
   const [selectedOption, setSelectedOption] = useState<EditOption | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isProcessed, setIsProcessed] = useState(false);
-  const [currentImageId, setCurrentImageId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
+    // Redirect if not logged in
     if (!user) {
       navigate('/login');
       return;
@@ -28,113 +27,118 @@ const Editor: React.FC = () => {
     
     if (imageId) {
       // Load the image data
-      const loadImage = async () => {
-        try {
-          const image = await ImageService.getUserImage(imageId);
-          if (image) {
-            setOriginalImage(image.originalImageUrl);
-            setEditedImage(image.editedImageUrl);
-            setIsProcessed(!!image.editedImageUrl);
-            setCurrentImageId(image.id);
-          }
-        } catch (error) {
-          console.error('Error loading image:', error);
-          setError('Failed to load image');
-        }
-      };
+      const mockImages = getMockImages();
+      const image = mockImages.find(img => img.id === imageId);
       
-      loadImage();
+      if (image) {
+        setOriginalImage(image.originalImageUrl);
+        setEditedImage(image.editedImageUrl);
+        setIsProcessed(!!image.editedImageUrl);
+      }
     }
   }, [user, navigate, location.search]);
 
-  const uploadImageToStorage = async (file: File): Promise<string> => {
-    // In a real implementation, you would upload to Supabase Storage
-    // For now, we'll use a data URL as a placeholder
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        resolve(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const handleImageSelected = async (file: File, preview: string) => {
-    try {
-      setSelectedFile(file);
-      setOriginalImage(preview);
-      setEditedImage(null);
-      setIsProcessed(false);
-      setError(null);
-      
-      // Upload image and create database record
-      if (user) {
-        const imageUrl = await uploadImageToStorage(file);
-        const newImage = await ImageService.createUserImage(
-          user.id,
-          file.name,
-          imageUrl
-        );
-        setCurrentImageId(newImage.id);
-      }
-    } catch (error) {
-      console.error('Error handling image selection:', error);
-      setError('Failed to process image. Please try again.');
-    }
+  const handleImageSelected = (file: File, preview: string) => {
+    setSelectedFile(file);
+    setOriginalImage(preview);
+    setEditedImage(null);
+    setIsProcessed(false);
   };
 
   const handleApplyEdit = async () => {
-    if (!originalImage || !selectedOption || !currentImageId) return;
+    if (!originalImage || !selectedOption) return;
     
     setIsProcessing(true);
-    setError(null);
     
     try {
       // Simulate API call to AI service
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // For demo purposes, just use the original image
+      // For mock purposes, just use the original image with slight modifications
       // In a real app, this would be the result from the AI service
-      const editedImageUrl = originalImage; // This would be the actual edited image URL
-      
-      // Update the database record
-      await ImageService.updateUserImage(currentImageId, {
-        editedImageUrl,
-        editType: selectedOption.name,
-      });
-      
-      setEditedImage(editedImageUrl);
+      setEditedImage(originalImage);
       setIsProcessed(true);
     } catch (error) {
       console.error('Error processing image:', error);
-      setError('Failed to process image. Please try again.');
     } finally {
       setIsProcessing(false);
     }
   };
 
   const handleSaveToProfile = () => {
-    // Image is already saved to the database, just navigate back
+    // Would save to user's profile in a real app
     navigate('/dashboard');
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                AI Image Editor
-              </h1>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                Upload an image and apply AI-powered edits
-              </p>
-              {error && (
-                <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-md">
-                  {error}
-                </div>
-              )}
-            </div>
+    <div className="min-h-screen pt-16 pb-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+        <div className="flex items-center mb-8">
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="mr-4 p-2 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              Image Editor
+            </h1>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+              Upload an image and apply AI-powered edits
+            </p>
           </div>
         </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2">
+            {originalImage ? (
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                <ImageComparison 
+                  originalSrc={originalImage}
+                  editedSrc={editedImage}
+                  onDownload={handleDownload}
+                  isProcessed={isProcessed}
+                />
+                
+                {isProcessed && (
+                  <div className="mt-4 flex justify-end">
+                    <button
+                      onClick={handleSaveToProfile}
+                      className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 dark:focus:ring-offset-gray-800"
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      Save to Profile
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 flex flex-col items-center justify-center min-h-[400px]">
+                <ImageUploader 
+                  onImageSelected={handleImageSelected}
+                  className="max-w-md mx-auto"
+                />
+              </div>
+            )}
+          </div>
+
+          <div>
+            {originalImage && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                <EditOptions
+                  onSelectOption={handleSelectOption}
+                  selectedOption={selectedOption}
+                  onApplyEdit={handleApplyEdit}
+                  isProcessing={isProcessing}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Editor;
